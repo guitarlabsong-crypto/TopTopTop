@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Song Young-min Guitar Lab - Climber Pro</title>
+    <title>Song Young-min Guitar Lab - Climber Pro (Infinite)</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050816; font-family: 'Arial', sans-serif; user-select: none; touch-action: none; }
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         
-        /* 컨트롤 UI: 최하단 배치 */
+        /* 컨트롤 UI */
         #joystick-container { position: absolute; bottom: 10px; left: 30px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; }
         #btn-jump { position: absolute; bottom: 10px; right: 30px; width: 85px; height: 85px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
@@ -65,7 +65,7 @@
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(150, audioCtx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.start(); osc.stop(audioCtx.currentTime + 0.1);
@@ -92,6 +92,7 @@
     const platGap = 130; 
     let platforms = [];
     let maxM = 0;
+    let lastGeneratedM = 0; // 마지막으로 생성된 사다리의 고도 추적
     let gameState = 'playing';
     let jumpCount = 0;
     let shoeShield = 0; 
@@ -102,20 +103,25 @@
     const player = { x: 0, y: 0, width: 36, height: 60, vx: 0, vy: 0, speed: 6, jumpPower: -17 };
 
     function initGame() {
-        platforms = []; maxM = 0; jumpCount = 0; gameState = 'playing';
+        platforms = []; maxM = 0; lastGeneratedM = 0; jumpCount = 0; gameState = 'playing';
         shoeShield = 0; hasCape = false; isFlying = false; flyTimer = 0;
         gameOverEl.style.display = 'none'; skillBtn.style.display = 'none';
         altitudeEl.innerText = "0 M"; statusEl.innerText = "";
         player.x = canvas.width / 2 - 18; player.y = canvas.height - 150; player.vy = 0;
+        
+        // 바닥 생성
         platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 50, type: 'normal', m: 0 });
-        for (let i = 1; i <= 25; i++) spawnPlatform(i);
+        
+        // 초기 사다리 20개 생성
+        for (let i = 1; i <= 20; i++) {
+            spawnPlatform(i);
+        }
     }
 
     function spawnPlatform(mValue) {
-        const baseW = 140; 
+        const baseW = 150; 
         const minW = 50;   
-        // 20m 지점에서도 충분한 폭을 갖도록 공식 최적화
-        const currentW = Math.max(minW, baseW - (mValue * 0.6)); 
+        const currentW = Math.max(minW, baseW - (mValue * 0.4)); 
 
         const types = ['normal', 'move', 'break', 'spike'];
         let type = types[0];
@@ -137,9 +143,10 @@
             x: Math.random() * (canvas.width - currentW),
             y: canvas.height - (mValue * platGap) - 50,
             w: currentW, h: platHeight, type: type, m: mValue,
-            dir: Math.random() > 0.5 ? 1.5 : -1.5, broken: false, breakTimer: 0,
+            dir: Math.random() > 0.5 ? 1.8 : -1.8, broken: false, breakTimer: 0,
             spikeRange: spikeRange
         });
+        lastGeneratedM = mValue;
     }
 
     let moveDir = 0;
@@ -205,17 +212,25 @@
             if (p.broken) p.breakTimer++;
         });
 
+        // 카메라 스크롤
         if (player.y < canvas.height * 0.4) {
             let diff = canvas.height * 0.4 - player.y;
             player.y += diff;
             platforms.forEach(p => p.y += diff);
         }
 
-        // [핵심 수정] 생성 조건을 매우 넉넉하게 (-600px) 설정하여 20m 끊김 방지
-        if (platforms.length > 0 && platforms[platforms.length - 1].y > -600) {
-            spawnPlatform(platforms[platforms.length - 1].m + 1);
+        // [끊김 방지 핵심 로직] 
+        // 1. 현재 화면에 있는 가장 높은 사다리가 일정 높이(0) 아래로 내려오면 무조건 생성
+        // 2. 혹은 사다리 개수가 너무 적으면 무조건 보충
+        if (platforms.length > 0) {
+            const topPlat = platforms[platforms.length - 1];
+            if (topPlat.y > -800 || platforms.length < 15) {
+                spawnPlatform(lastGeneratedM + 1);
+            }
         }
-        if (platforms.length > 0 && platforms[0].y > canvas.height + 800) {
+
+        // 제거 로직: 화면 아래로 한참 내려갔을 때만 지움
+        if (platforms.length > 0 && platforms[0].y > canvas.height + 1000) {
             platforms.shift();
         }
 
