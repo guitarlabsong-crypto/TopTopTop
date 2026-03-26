@@ -9,13 +9,13 @@
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         
-        /* 컨트롤 UI: 최하단 배치 (10px) */
+        /* 컨트롤 UI: 최하단 배치 */
         #joystick-container { position: absolute; bottom: 10px; left: 30px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; }
         #btn-jump { position: absolute; bottom: 10px; right: 30px; width: 85px; height: 85px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
         #btn-skill { position: absolute; bottom: 10px; right: 30px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
 
-        /* 워터마크/점수: 상단 배치 */
+        /* 상단 UI */
         #watermark { position: absolute; top: 15px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1.5px; z-index: 5; }
         #altitude { position: absolute; top: 40px; width: 100%; text-align: center; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px #000; z-index: 10; }
         
@@ -54,7 +54,6 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // --- 효과음 엔진 (깔끔한 버전 복원) ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
     function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
@@ -88,10 +87,9 @@
         });
     }
 
-    // --- 게임 물리 변수 ---
     const gravity = 0.7;
     const platHeight = 20;
-    const platGap = 130; // 사다리 간격 적당히 유지
+    const platGap = 130; 
     let platforms = [];
     let maxM = 0;
     let gameState = 'playing';
@@ -110,23 +108,22 @@
         altitudeEl.innerText = "0 M"; statusEl.innerText = "";
         player.x = canvas.width / 2 - 18; player.y = canvas.height - 150; player.vy = 0;
         platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 50, type: 'normal', m: 0 });
-        for (let i = 1; i <= 20; i++) spawnPlatform(i);
+        for (let i = 1; i <= 25; i++) spawnPlatform(i);
     }
 
-    // [핵심] 올라갈수록 좁아지는 발판 생성 로직
     function spawnPlatform(mValue) {
-        const baseW = 120; // 시작 폭
-        const minW = 50;   // 최소 폭
-        // mValue(고도)에 비례하여 폭(w)을 점진적으로 줄임
-        const currentW = Math.max(minW, baseW - (mValue * 0.5)); 
+        const baseW = 140; 
+        const minW = 50;   
+        // 20m 지점에서도 충분한 폭을 갖도록 공식 최적화
+        const currentW = Math.max(minW, baseW - (mValue * 0.6)); 
 
         const types = ['normal', 'move', 'break', 'spike'];
         let type = types[0];
         const rand = Math.random();
         if (mValue > 5) {
-            if (rand > 0.85) type = 'move';
-            else if (rand > 0.75) type = 'break';
-            else if (rand > 0.6) type = 'spike';
+            if (rand > 0.88) type = 'move';
+            else if (rand > 0.78) type = 'break';
+            else if (rand > 0.65) type = 'spike';
         }
 
         let spikeRange = { start: 0, count: 0 };
@@ -145,7 +142,6 @@
         });
     }
 
-    // 입력 처리
     let moveDir = 0;
     const joystick = document.getElementById('joystick-container');
     const knob = document.getElementById('joystick-knob');
@@ -209,22 +205,21 @@
             if (p.broken) p.breakTimer++;
         });
 
-        // 카메라 스크롤
-        if (player.y < canvas.height / 2) {
-            let diff = canvas.height / 2 - player.y;
+        if (player.y < canvas.height * 0.4) {
+            let diff = canvas.height * 0.4 - player.y;
             player.y += diff;
             platforms.forEach(p => p.y += diff);
         }
 
-        // [핵심] 발판 끊김 방지 및 무한 생성
-        if (platforms.length > 0 && platforms[platforms.length - 1].y > -platGap) {
+        // [핵심 수정] 생성 조건을 매우 넉넉하게 (-600px) 설정하여 20m 끊김 방지
+        if (platforms.length > 0 && platforms[platforms.length - 1].y > -600) {
             spawnPlatform(platforms[platforms.length - 1].m + 1);
         }
-        if (platforms.length > 0 && platforms[0].y > canvas.height + 400) {
+        if (platforms.length > 0 && platforms[0].y > canvas.height + 800) {
             platforms.shift();
         }
 
-        if (player.y > canvas.height + 250) gameOver();
+        if (player.y > canvas.height + 300) gameOver();
 
         statusEl.innerText = shoeShield > 0 ? `👞 신발 방어: ${shoeShield}회` : "";
         if (isFlying) statusEl.innerText += `\n🚀 비행중: ${Math.ceil(flyTimer/60)}s`;
@@ -243,49 +238,29 @@
         gameOverEl.style.display = 'block';
     }
 
-    // --- [디테일 그리기] 얼굴 사라지는 문제 해결 ---
     function drawPlayer() {
         const x = player.x; const y = player.y;
-        
-        // 망토 그리기
         if (hasCape) { ctx.fillStyle = isFlying ? "#f1c40f" : "#e74c3c"; ctx.fillRect(x - 5, y + 25, 46, 30); }
-
-        // 몸체 블록 그리기
-        ctx.fillStyle = "#ffcc99"; ctx.fillRect(x + 6, y, 24, 24); // 머리
-        ctx.fillStyle = "#e74c3c"; ctx.fillRect(x, y + 24, 36, 24); // 몸통
-        ctx.fillStyle = "#2c3e50"; ctx.fillRect(x + 4, y + 48, 10, 12); ctx.fillRect(x + 22, y + 48, 10, 12); // 다리
-        
-        // 얼굴 디테일 (눈) 그리기
+        ctx.fillStyle = "#ffcc99"; ctx.fillRect(x + 6, y, 24, 24); 
+        ctx.fillStyle = "#e74c3c"; ctx.fillRect(x, y + 24, 36, 24); 
+        ctx.fillStyle = "#2c3e50"; ctx.fillRect(x + 4, y + 48, 10, 12); ctx.fillRect(x + 22, y + 48, 10, 12); 
         ctx.fillStyle = isFlying ? "gold" : "black"; 
         ctx.fillRect(x + 10, y + 6, 4, 4); ctx.fillRect(x + 22, y + 6, 4, 4);
-
-        // 아이템 장착 시각화
-        if (maxM >= 50) { // 신발
-            ctx.fillStyle = shoeShield > 0 ? "#3498db" : "rgba(52, 152, 219, 0.3)";
-            ctx.fillRect(x+2, y+54, 14, 6); ctx.fillRect(x+20, y+54, 14, 6); 
-        }
-        if (maxM >= 150) { ctx.fillStyle = "#f1c40f"; ctx.fillRect(x-2, y+36, 4, 4); } // 팔찌
-        if (maxM >= 200) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(x+6, y+6, 24, 6); } // 선글라스
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 배경 별
         ctx.fillStyle = "white";
         for(let i=0; i<20; i++) ctx.fillRect((i*157)%canvas.width, (i*190 + maxM*3)%canvas.height, 2, 2);
 
-        // 플랫폼 그리기
         platforms.forEach(p => {
             if (p.type === 'break' && p.breakTimer > 10) return;
             let color = "#34495e";
             if (p.type === 'move') color = "#2ecc71";
             if (p.type === 'break') color = "#e67e22";
             if (p.type === 'spike') color = "#c0392b";
-
             ctx.fillStyle = color; ctx.fillRect(p.x, p.y, p.w, p.h);
             ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(p.x, p.y, p.w, 4);
-            
             if (p.type === 'spike') {
                 ctx.fillStyle = "#ecf0f1";
                 for(let i = p.spikeRange.start; i < p.spikeRange.start + p.spikeRange.count; i++) {
@@ -293,8 +268,7 @@
                 }
             }
         });
-
-        drawPlayer(); // 수정된 그리기 함수 호출
+        drawPlayer();
     }
 
     function loop() { update(); draw(); requestAnimationFrame(loop); }
