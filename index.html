@@ -8,12 +8,17 @@
         body { margin: 0; overflow: hidden; background: #050816; font-family: 'Arial', sans-serif; user-select: none; touch-action: none; }
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        /* 컨트롤 UI */
         #joystick-container { position: absolute; bottom: 10px; left: 30px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; }
         #btn-jump { position: absolute; bottom: 10px; right: 30px; width: 85px; height: 85px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
         #btn-skill { position: absolute; bottom: 10px; right: 30px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
+
+        /* 상단 정보 */
         #watermark { position: absolute; top: 15px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1.5px; z-index: 5; }
         #altitude { position: absolute; top: 40px; width: 100%; text-align: center; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px #000; z-index: 10; }
+        
         #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); border: 2px solid #ffd700; padding: 30px; color: white; text-align: center; display: none; pointer-events: auto; border-radius: 15px; width: 260px; z-index: 20; }
         #restart-btn { margin-top: 15px; padding: 12px 24px; background: #ffd700; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
         #status { position: absolute; top: 80px; left: 20px; color: #fff; font-size: 14px; text-align: left; z-index: 10; }
@@ -82,13 +87,11 @@
         });
     }
 
-    // --- 게임 물리 변수 ---
     const gravity = 0.7;
     const platHeight = 20;
     const platGap = 130; 
     let platforms = [];
     let maxM = 0;
-    let currentSpawnM = 0; // 마지막으로 생성된 고도 번호
     let gameState = 'playing';
     let jumpCount = 0;
     let shoeShield = 0; 
@@ -99,19 +102,18 @@
     const player = { x: 0, y: 0, width: 36, height: 60, vx: 0, vy: 0, speed: 6, jumpPower: -17 };
 
     function initGame() {
-        platforms = []; maxM = 0; currentSpawnM = 0; jumpCount = 0; gameState = 'playing';
+        platforms = []; maxM = 0; jumpCount = 0; gameState = 'playing';
         shoeShield = 0; hasCape = false; isFlying = false; flyTimer = 0;
         gameOverEl.style.display = 'none'; skillBtn.style.display = 'none';
         altitudeEl.innerText = "0 M"; statusEl.innerText = "";
         player.x = canvas.width / 2 - 18; player.y = canvas.height - 150; player.vy = 0;
         
-        // 0번(바닥) 생성
+        // [처음 질문 코드 기반] 초기 바닥
         platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 50, type: 'normal', m: 0 });
-        
-        // 처음 20개 강제 생성
         for (let i = 1; i <= 20; i++) spawnPlatform(i);
     }
 
+    // [처음 질문 코드 기반] 사다리 생성 로직
     function spawnPlatform(mValue) {
         const baseW = 120; 
         const minW = 50;   
@@ -140,7 +142,6 @@
             dir: Math.random() > 0.5 ? 1.5 : -1.5, broken: false, breakTimer: 0,
             spikeRange: spikeRange
         });
-        currentSpawnM = mValue; // 생성된 마지막 번호 업데이트
     }
 
     let moveDir = 0;
@@ -213,12 +214,13 @@
             platforms.forEach(p => p.y += diff);
         }
 
-        // [수정된 핵심 로직] Y좌표에 상관없이 현재 고도(maxM)보다 15개 앞까지만 사다리를 무조건 채웁니다.
-        if (currentSpawnM < maxM + 15) {
-            spawnPlatform(currentSpawnM + 1);
+        // [이 부분만 수정!] 사다리가 끊기지 않도록 생성 조건을 넉넉하게 잡았습니다 (-platGap 대신 -600)
+        if (platforms.length > 0 && platforms[platforms.length - 1].y > -600) {
+            spawnPlatform(platforms[platforms.length - 1].m + 1);
         }
 
-        if (platforms.length > 0 && platforms[0].y > canvas.height + 600) {
+        // 제거 로직도 여유 있게 변경
+        if (platforms.length > 0 && platforms[0].y > canvas.height + 800) {
             platforms.shift();
         }
 
