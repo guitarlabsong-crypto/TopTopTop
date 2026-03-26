@@ -3,50 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Block Climber Gold</title>
+    <title>Night Sky Block Climber</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Courier New', Courier, monospace; user-select: none; -webkit-touch-callout: none; }
+        /* 3. 게임 배경: 밤하늘 */
+        body { margin: 0; overflow: hidden; background: #0b1026; font-family: sans-serif; user-select: none; -webkit-touch-callout: none; }
         canvas { display: block; }
 
-        /* UI 레이아웃 */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         
-        /* 가상 조이스틱 (왼쪽) */
+        /* 4. 조이스틱 디자인 유지 */
         #joystick-container {
             position: absolute; bottom: 40px; left: 40px;
-            width: 120px; height: 120px; background: rgba(255, 255, 255, 0.2);
+            width: 120px; height: 120px; background: rgba(255, 255, 255, 0.1);
             border-radius: 50%; pointer-events: auto; touch-action: none;
-            border: 2px solid rgba(255,255,255,0.4);
+            border: 2px solid rgba(255,255,255,0.3);
         }
         #joystick-knob {
             position: absolute; top: 35px; left: 35px;
-            width: 50px; height: 50px; background: rgba(255, 255, 255, 0.8);
-            border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            width: 50px; height: 50px; background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
         }
 
-        /* 점프 버튼 (오른쪽) */
+        /* 5. 점프 버튼: 네이비 색상 */
         #btn-jump {
             position: absolute; bottom: 50px; right: 40px;
-            width: 90px; height: 90px; background: rgba(255, 87, 34, 0.6);
-            border-radius: 50%; border: 4px solid #fff;
-            color: white; font-size: 20px; font-weight: bold;
+            width: 90px; height: 90px; background: #000080; /* Navy */
+            border-radius: 50%; border: 3px solid #ffffff;
+            color: white; font-size: 18px; font-weight: bold;
             display: flex; justify-content: center; align-items: center;
-            pointer-events: auto; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            pointer-events: auto; touch-action: none; box-shadow: 0 0 15px rgba(0,0,128,0.5);
         }
-        #btn-jump:active { background: rgba(255, 87, 34, 0.9); transform: scale(0.95); }
         
-        #score { position: absolute; top: 20px; width: 100%; text-align: center; font-size: 24px; color: white; text-shadow: 2px 2px 0 #000; }
+        #score { position: absolute; top: 30px; width: 100%; text-align: center; font-size: 20px; color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
     </style>
 </head>
 <body>
 
-<div id="score">포도를 찾아라!</div>
+<div id="score">별빛 포도를 모으세요!</div>
 <canvas id="gameCanvas"></canvas>
 
 <div id="ui-layer">
-    <div id="joystick-container">
-        <div id="joystick-knob"></div>
-    </div>
+    <div id="joystick-container"><div id="joystick-knob"></div></div>
     <div id="btn-jump">JUMP</div>
 </div>
 
@@ -55,7 +52,6 @@
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
 
-    // 화면 크기 설정
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -63,106 +59,91 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // --- 오디오 컨텍스트 설정 (착지, 추락 소리) ---
+    // 오디오 설정
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    function playSound(type) {
+    function playSound(f, d, g) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        const osc = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        osc.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        if (type === 'land') { // 탁 (짧고 높은 톤)
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
-            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-        } else if (type === 'fall') { // 쿵 (낮고 무거운 톤)
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.4);
-            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
-        }
+        const o = audioCtx.createOscillator();
+        const gn = audioCtx.createGain();
+        o.connect(gn); gn.connect(audioCtx.destination);
+        o.frequency.setValueAtTime(f, audioCtx.currentTime);
+        gn.gain.setValueAtTime(g, audioCtx.currentTime);
+        gn.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+        o.start(); o.stop(audioCtx.currentTime + d);
     }
 
-    // --- 게임 상수 ---
     const gravity = 0.8;
-    const blockSize = 5; // 캐릭터 디테일 기본 단위
-
-    // --- 게임 상태 ---
-    let scrollY = 0;
-    let fruitsCollected = 0;
+    const blockSize = 6; 
     let platforms = [];
-    let grapes = []; // 작은 블럭들로 이루어진 포도송이
-    let gameState = 'playing'; // playing, dead
+    let grapes = [];
+    let gameState = 'playing';
 
-    // --- 캐릭터 객체 ---
     const player = {
-        x: canvas.width / 2,
-        y: canvas.height - 150,
-        width: blockSize * 6,  // 몸통 폭 (30px)
-        height: blockSize * 12, // 전체 높이 (60px)
-        velocityX: 0,
-        velocityY: 0,
-        speed: 6,
-        jumpPower: -22, // 점프력 대폭 강화
-        onGround: false,
-        wasOnGround: false,
-        colorBody: '#3498db',
-        colorSkin: '#FFCC99',
-        colorShirt: '#e74c3c',
-        dizzyAngle: 0 // 죽었을 때 눈 회전용
+        x: 0, y: 0,
+        width: blockSize * 6, height: blockSize * 12,
+        velocityX: 0, velocityY: 0,
+        speed: 7, jumpPower: -24,
+        onGround: false, dizzyAngle: 0
     };
 
-    // --- 조이스틱 로직 ---
-    const joystick = document.getElementById('joystick-container');
-    const knob = document.getElementById('joystick-knob');
-    let joystickActive = false;
-    let joystickStartX, joystickStartY;
-    let joystickVector = { x: 0, y: 0 };
-    const maxInput = 50; // 조이스틱 최대 이동 거리
+    // 2. 착지 계단(플랫폼) 생성 로직 보강
+    function initGame() {
+        platforms = [];
+        grapes = [];
+        gameState = 'playing';
+        player.x = canvas.width / 2 - player.width / 2;
+        player.y = canvas.height - 150;
+        player.velocityY = 0;
 
-    joystick.addEventListener('touchstart', (e) => {
-        joystickActive = true;
-        const touch = e.touches[0];
-        const rect = joystick.getBoundingClientRect();
-        joystickStartX = rect.left + rect.width / 2;
-        joystickStartY = rect.top + rect.height / 2;
-    });
+        // 시작 바닥 (확실히 보이게)
+        platforms.push({ x: 0, y: canvas.height - 60, w: canvas.width, h: 60 });
 
-    document.addEventListener('touchmove', (e) => {
-        if (!joystickActive || gameState === 'dead') return;
-        const touch = e.touches[0];
-        let dx = touch.clientX - joystickStartX;
-        let dy = touch.clientY - joystickStartY;
-
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > maxInput) {
-            dx = dx * (maxInput / dist);
-            dy = dy * (maxInput / dist);
+        // 올라가는 계단들
+        for (let i = 1; i < 20; i++) {
+            platforms.push({
+                x: Math.random() * (canvas.width - 120),
+                y: canvas.height - (i * 150),
+                w: 110,
+                h: 25
+            });
         }
 
-        knob.style.transform = `translate(${dx}px, ${dy}px)`;
-        // 좌우 입력값 (-1 ~ 1)
-        joystickVector.x = dx / maxInput; 
+        // 포도송이 (작은 블럭들)
+        const top = platforms[platforms.length - 1];
+        const gx = top.x + top.w / 2;
+        const gy = top.y - 50;
+        const pattern = [[0,0], [1,0], [-1,0], [0.5, 1], [-0.5, 1], [0, 2]];
+        pattern.forEach(p => {
+            grapes.push({ x: gx + p[0]*10, y: gy + p[1]*10, size: 8, active: true });
+        });
+    }
+
+    // 조이스틱 로직
+    const joystick = document.getElementById('joystick-container');
+    const knob = document.getElementById('joystick-knob');
+    let moveX = 0;
+
+    joystick.addEventListener('touchmove', (e) => {
+        if (gameState === 'dead') return;
+        const touch = e.touches[0];
+        const rect = joystick.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let dx = touch.clientX - centerX;
+        let dy = touch.clientY - centerY;
+        const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 50);
+        const angle = Math.atan2(dy, dx);
+        
+        knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+        moveX = (Math.cos(angle) * dist) / 50;
     });
 
-    document.addEventListener('touchend', () => {
-        joystickActive = false;
-        knob.style.transform = `translate(0px, 0px)`;
-        joystickVector.x = 0;
+    joystick.addEventListener('touchend', () => {
+        knob.style.transform = `translate(0,0)`;
+        moveX = 0;
     });
 
-    // --- 점프 버튼 로직 ---
-    const btnJump = document.getElementById('btn-jump');
-    btnJump.addEventListener('touchstart', (e) => {
+    document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (player.onGround && gameState === 'playing') {
             player.velocityY = player.jumpPower;
@@ -170,259 +151,113 @@
         }
     });
 
-
-    // --- 게임 초기화 ---
-    function initGame() {
-        platforms = [];
-        grapes = [];
-        gameState = 'playing';
-        player.dizzyAngle = 0;
-        player.velocityY = 0;
-        
-        // 바닥
-        platforms.push({ x: 0, y: canvas.height - 40, w: canvas.width, h: 40 });
-        
-        // 계단형 플랫폼 생성
-        for (let i = 1; i < 18; i++) {
-            platforms.push({
-                x: Math.random() * (canvas.width - 100),
-                y: canvas.height - (i * 140),
-                w: 100,
-                h: 20
-            });
-        }
-        
-        // 꼭대기에 포도송이 배치 (작은 블럭 조합)
-        const topP = platforms[platforms.length - 1];
-        const grapeBaseX = topP.x + topP.w/2;
-        const grapeBaseY = topP.y - 40;
-        
-        // 포도송이 모양 (패턴)
-        const pattern = [
-            [0,0], [1,0], [-1,0],
-            [0.5, 1], [-0.5, 1], [0, 2]
-        ];
-        
-        pattern.forEach(p => {
-            grapes.push({
-                x: grapeBaseX + (p[0] * blockSize * 1.5),
-                y: grapeBaseY + (p[1] * blockSize * 1.5),
-                size: blockSize * 1.2,
-                active: true
-            });
-        });
-    }
-
-    // --- 그리기 함수들 ---
-
-    function drawBlock(x, y, w, h, color) {
-        ctx.fillStyle = color;
-        ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-        // 입체감 (약간 어두운 테두리)
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.fillRect(Math.round(x), Math.round(y+h-blockSize), Math.round(w), blockSize);
-    }
-
-    function drawPlayer() {
-        const p = player;
-        const px = p.x;
-        const py = p.y;
-        
-        // 1. 다리 (작은 블럭 2개)
-        drawBlock(px + blockSize, py + blockSize * 8, blockSize * 2, blockSize * 4, '#34495e'); // 왼다리
-        drawBlock(px + blockSize * 3, py + blockSize * 8, blockSize * 2, blockSize * 4, '#34495e'); // 오른다리
-
-        // 2. 몸통 (셔츠)
-        drawBlock(px, py + blockSize * 3, blockSize * 6, blockSize * 5, p.colorShirt);
-
-        // 3. 팔
-        drawBlock(px - blockSize * 1.5, py + blockSize * 3, blockSize * 1.5, blockSize * 4, p.colorSkin); // 왼팔
-        drawBlock(px + blockSize * 6, py + blockSize * 3, blockSize * 1.5, blockSize * 4, p.colorSkin); // 오른팔
-
-        // 4. 머리
-        drawBlock(px + blockSize, py - blockSize * 1, blockSize * 4, blockSize * 4, p.colorSkin);
-
-        // 5. 얼굴 (매우 작은 블럭)
-        if (gameState === 'dead') {
-            // 죽었을 때 눈 (빙글빙글 😵)
-            p.dizzyAngle += 0.2;
-            ctx.save();
-            ctx.translate(px + blockSize * 2.2, py + blockSize * 0.5);
-            ctx.rotate(p.dizzyAngle);
-            ctx.fillStyle = 'black';
-            ctx.font = 'bold 10px Arial';
-            ctx.fillText('X', -4, 4);
-            ctx.restore();
-
-            ctx.save();
-            ctx.translate(px + blockSize * 3.8, py + blockSize * 0.5);
-            ctx.rotate(-p.dizzyAngle);
-            ctx.fillStyle = 'black';
-            ctx.font = 'bold 10px Arial';
-            ctx.fillText('X', -4, 4);
-            ctx.restore();
-            
-            // 입 (O 모양)
-            drawBlock(px + blockSize * 2.5, py + blockSize * 2, blockSize, blockSize, 'black');
-
-        } else {
-            // 평소 눈
-            drawBlock(px + blockSize * 1.8, py + blockSize * 0.2, blockSize, blockSize, 'black'); // 왼눈
-            drawBlock(px + blockSize * 3.2, py + blockSize * 0.2, blockSize, blockSize, 'black'); // 오른눈
-            // 코
-            drawBlock(px + blockSize * 2.5, py + blockSize * 1, blockSize, blockSize, '#e7a97d');
-            // 입
-            drawBlock(px + blockSize * 2, py + blockSize * 2, blockSize * 2, blockSize / 2, 'red');
-        }
-        
-        // 귀
-        drawBlock(px + blockSize * 0.5, py + blockSize * 0.5, blockSize / 2, blockSize, p.colorSkin); // 왼귀
-        drawBlock(px + blockSize * 5, py + blockSize * 0.5, blockSize / 2, blockSize, p.colorSkin); // 오른귀
-    }
-
-    function drawGrapes() {
-        grapes.forEach(g => {
-            if (g.active) {
-                // 포도알 (블럭)
-                drawBlock(g.x, g.y, g.size, g.size, '#8e44ad');
-                // 반짝임 포인트
-                drawBlock(g.x + 1, g.y + 1, 2, 2, 'rgba(255,255,255,0.3)');
-            }
-        });
-    }
-
-    // --- 메인 게임 루프 ---
     function update() {
         if (gameState === 'dead') {
             player.velocityY += gravity;
             player.y += player.velocityY;
-            return; // 죽었을 땐 이동 입력 무시
-        }
+        } else {
+            player.velocityX = moveX * player.speed;
+            player.velocityY += gravity;
+            player.x += player.velocityX;
+            player.y += player.velocityY;
 
-        // 1. 이동 로직 (조이스틱 입력 적용)
-        player.velocityX = joystickVector.x * player.speed;
-        
-        player.velocityY += gravity;
-        player.x += player.velocityX;
-        player.y += player.velocityY;
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-        // 화면 옆 밖으로 나가지 않게
-        if (player.x < blockSize*2) player.x = blockSize*2;
-        if (player.x + player.width > canvas.width - blockSize*2) player.x = canvas.width - player.width - blockSize*2;
-
-        // 2. 플랫폼 충돌 검사
-        player.onGround = false;
-        platforms.forEach(p => {
-            if (player.velocityY > 0 && // 떨어지는 중일 때만
-                player.x + player.width > p.x &&
-                player.x < p.x + p.w &&
-                player.y + player.height > p.y &&
-                player.y + player.height < p.y + p.h + player.velocityY) {
-                
-                player.y = p.y - player.height;
-                player.velocityY = 0;
-                player.onGround = true;
-            }
-        });
-
-        // 착지 효과음 (이번 프레임에 땅에 닿았을 때)
-        if (player.onGround && !player.wasOnGround) {
-            playSound('land');
-        }
-        player.wasOnGround = p.onGround;
-
-        // 3. 카메라 스크롤
-        if (player.y < canvas.height / 2) {
-            let diff = canvas.height / 2 - player.y;
-            scrollY += diff;
-            player.y += diff;
-            platforms.forEach(p => p.y += diff);
-            grapes.forEach(g => g.y += diff);
-        }
-
-        // 4. 포도 획득 검사
-        let allEaten = true;
-        grapes.forEach(g => {
-            if (g.active) {
-                allEaten = false;
-                // 사각형 충돌 검사
-                if (player.x < g.x + g.size &&
-                    player.x + player.width > g.x &&
-                    player.y < g.y + g.size &&
-                    player.y + player.height > g.y) {
-                    g.active = false;
-                    // 작은 효과음 (필요시 추가)
+            player.onGround = false;
+            platforms.forEach(p => {
+                if (player.velocityY > 0 &&
+                    player.x + player.width > p.x && player.x < p.x + p.w &&
+                    player.y + player.height > p.y && player.y + player.height < p.y + p.h + player.velocityY) {
+                    if (!player.onGround) playSound(150, 0.1, 0.2); // 탁 소리
+                    player.y = p.y - player.height;
+                    player.velocityY = 0;
+                    player.onGround = true;
                 }
+            });
+
+            if (player.y < canvas.height / 2) {
+                let diff = canvas.height / 2 - player.y;
+                player.y += diff;
+                platforms.forEach(p => p.y += diff);
+                grapes.forEach(g => g.y += diff);
             }
-        });
 
-        if (allEaten && grapes.length > 0) {
-            fruitsCollected++;
-            scoreEl.innerText = `포도 완료! (${fruitsCollected}송이)`;
-            scoreEl.style.color = '#f1c40f';
-            setTimeout(initGame, 1500); // 1.5초 후 다음 레벨
-            grapes = []; // 중복 실행 방지
-        }
+            grapes.forEach(g => {
+                if (g.active && Math.abs(player.x - g.x) < 30 && Math.abs(player.y - g.y) < 40) g.active = false;
+            });
 
-        // 5. 게임 오버 (추락)
-        if (player.y > canvas.height + 100) {
-            gameState = 'dead';
-            playSound('fall');
-            scoreEl.innerText = "추락! (화면 터치 시 재시작)";
-            scoreEl.style.color = '#e74c3c';
-            
-            // 부활 로직 (화면 터치 시)
-            window.addEventListener('touchstart', restartGame, { once: true });
+            if (player.y > canvas.height + 100) {
+                gameState = 'dead';
+                playSound(80, 0.5, 0.5); // 쿵 소리
+                setTimeout(initGame, 2000);
+            }
         }
     }
 
-    function restartGame() {
-        if (gameState !== 'dead') return;
-        fruitsCollected = 0;
-        scoreEl.innerText = "포도를 찾아라!";
-        scoreEl.style.color = "white";
-        initGame();
-        player.y = canvas.height - 150;
-        player.x = canvas.width / 2;
+    // 1. 캐릭터 보강: 블록 팔다리 및 얼굴 디테일
+    function drawPlayer() {
+        const p = player;
+        ctx.save();
+        
+        // 몸통/다리/팔
+        ctx.fillStyle = "#ffcc99"; // 피부
+        ctx.fillRect(p.x + 6, p.y - 6, 24, 24); // 머리
+        ctx.fillStyle = "#e74c3c"; // 옷
+        ctx.fillRect(p.x, p.y + 18, 36, 30); // 몸통
+        
+        // 팔다리 블럭
+        ctx.fillStyle = "#ffcc99";
+        ctx.fillRect(p.x - 6, p.y + 18, 6, 24); // 왼팔
+        ctx.fillRect(p.x + 36, p.y + 18, 6, 24); // 오른팔
+        ctx.fillStyle = "#2c3e50";
+        ctx.fillRect(p.x + 6, p.y + 48, 10, 24); // 왼다리
+        ctx.fillRect(p.x + 20, p.y + 48, 10, 24); // 오른다리
+
+        // 얼굴 디테일
+        if (gameState === 'dead') {
+            p.dizzyAngle += 0.2;
+            ctx.fillStyle = "white";
+            ctx.font = "bold 14px Arial";
+            ctx.fillText("X X", p.x + 8, p.y + 10); // 눈 빙글빙글 대신 X자
+        } else {
+            ctx.fillStyle = "black";
+            ctx.fillRect(p.x + 10, p.y + 2, 4, 4); // 눈
+            ctx.fillRect(p.x + 22, p.y + 2, 4, 4);
+            ctx.fillStyle = "red";
+            ctx.fillRect(p.x + 14, p.y + 12, 8, 2); // 입
+        }
+        ctx.restore();
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 배경 처리 (위로 갈수록 진해지는 하늘)
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, "#4a90e2");
-        gradient.addColorStop(1, "#87CEEB");
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // 밤하늘 배경 (별 추가)
+        ctx.fillStyle = "white";
+        for(let i=0; i<50; i++) ctx.fillRect((i*137)%canvas.width, (i*243)%canvas.height, 2, 2);
 
-        // 플랫폼 그리기 (흙 블럭 느낌)
+        // 발판 그리기 (밤에 어울리는 돌 블럭)
         platforms.forEach(p => {
-            drawBlock(p.x, p.y, p.w, p.h, "#8e6e46"); // 흙
-            drawBlock(p.x, p.y, p.w, 6, "#55a630"); // 잔디
+            ctx.fillStyle = "#34495e";
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.fillStyle = "#5d6d7e";
+            ctx.fillRect(p.x, p.y, p.w, 5); // 윗면 강조
         });
 
-        // 포도 그리기
-        drawGrapes();
+        // 포도 (보라색 블럭)
+        grapes.forEach(g => {
+            if (g.active) {
+                ctx.fillStyle = "#8e44ad";
+                ctx.fillRect(g.x, g.y, g.size, g.size);
+            }
+        });
 
-        // 캐릭터 그리기
         drawPlayer();
     }
 
-    function gameLoop() {
-        update();
-        draw();
-        requestAnimationFrame(gameLoop);
-    }
-
-    // 터치 음향 제한 해제를 위한 첫 터치 이벤트
-    window.addEventListener('touchstart', () => {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }, { once: true });
-
-    initGame();
-    gameLoop();
+    function loop() { update(); draw(); requestAnimationFrame(loop); }
+    initGame(); loop();
 </script>
-
 </body>
 </html>
