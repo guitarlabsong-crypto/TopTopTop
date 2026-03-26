@@ -9,15 +9,15 @@
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         
-        /* 컨트롤 UI - 하단 배치 */
+        /* 조이스틱 위치: 하단에서 50px */
         #joystick-container { position: absolute; bottom: 50px; left: 30px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; }
         
-        /* 점프 버튼 - 다시 하단 우측으로 이동 */
-        #btn-jump { position: absolute; bottom: 150px; right: 40px; width: 80px; height: 80px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+        /* 점프 버튼 위치: 조이스틱과 동일하게 하단에서 50px 라인으로 수정 */
+        #btn-jump { position: absolute; bottom: 50px; right: 140px; width: 85px; height: 85px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
         
-        /* 망토 버튼 - 하단 우측 */
-        #btn-skill { position: absolute; bottom: 50px; right: 40px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
+        /* 망토 필살기 버튼: 점프 버튼보다 더 오른쪽 끝으로 배치 */
+        #btn-skill { position: absolute; bottom: 50px; right: 30px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
 
         #altitude { position: absolute; top: 30px; width: 100%; text-align: center; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px #000; }
         #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); border: 2px solid #ffd700; padding: 30px; color: white; text-align: center; display: none; pointer-events: auto; border-radius: 15px; width: 260px; z-index: 10; }
@@ -91,7 +91,6 @@
 
     const gravity = 0.7;
     const platHeight = 20;
-    // 발판 간격 적당히 조절 (너무 많지 않게)
     const platGap = 120; 
     let platforms = [];
     let maxM = 0;
@@ -117,10 +116,9 @@
     }
 
     function spawnPlatform(mValue) {
-        // 사다리 폭(너비)이 비례해서 좁아지는 로직
         const baseW = 120;
         const minW = 50;
-        const currentW = Math.max(minW, baseW - (mValue * 0.4)); // 고도에 비례해 축소
+        const currentW = Math.max(minW, baseW - (mValue * 0.4)); 
 
         const types = ['normal', 'move', 'break', 'spike'];
         let type = types[0];
