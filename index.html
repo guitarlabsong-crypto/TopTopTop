@@ -9,24 +9,23 @@
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         
-        /* [위치 조정] 조이스틱: bottom을 줄여서 더 아래로 배치 */
-        #joystick-container { position: absolute; bottom: 10px; left: 30px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
+        /* [위치] 조이스틱 최하단 배치 */
+        #joystick-container { position: absolute; bottom: 10px; left: 20px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; }
         
-        /* [위치 조정] 점프 버튼: bottom을 줄여서 더 아래로 배치 */
-        #btn-jump { position: absolute; bottom: 10px; right: 30px; width: 85px; height: 85px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+        /* [위치] 점프 버튼 최하단 배치 (수치 조정 가능) */
+        #btn-jump { position: absolute; bottom: 10px; right: 130px; width: 85px; height: 85px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
         
-        /* [위치 조정] 필살기 버튼: bottom을 줄여서 더 아래로 배치 */
-        #btn-skill { position: absolute; bottom: 10px; right: 30px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
+        /* [위치] 필살기 버튼 최하단 배치 */
+        #btn-skill { position: absolute; bottom: 10px; right: 20px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
 
-        #altitude { position: absolute; top: 40px; width: 100%; text-align: center; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px #000; z-index: 10; }
+        /* [위치] 워터마크 상단 배치 */
+        #watermark { position: absolute; top: 15px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1.5px; z-index: 5; }
+
+        #altitude { position: absolute; top: 45px; width: 100%; text-align: center; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px #000; z-index: 10; }
         #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); border: 2px solid #ffd700; padding: 30px; color: white; text-align: center; display: none; pointer-events: auto; border-radius: 15px; width: 260px; z-index: 20; }
         #restart-btn { margin-top: 15px; padding: 12px 24px; background: #ffd700; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
-        
-        /* [위치 조정] 워터마크: bottom 대신 top을 사용하여 상단 배치 */
-        #watermark { position: absolute; top: 15px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1.5px; z-index: 5; }
-        
-        #status { position: absolute; top: 80px; left: 20px; color: #fff; font-size: 14px; text-align: left; z-index: 10; }
+        #status { position: absolute; top: 90px; left: 20px; color: #fff; font-size: 14px; text-align: left; z-index: 10; }
     </style>
 </head>
 <body>
@@ -59,6 +58,7 @@
     window.addEventListener('resize', resize);
     resize();
 
+    // 오디오 설정
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
     function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
@@ -70,36 +70,19 @@
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(150, audioCtx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.start(); osc.stop(audioCtx.currentTime + 0.1);
     }
 
-    function playGameOverSound() {
-        if (!audioCtx) return;
-        const notes = [440, 392, 349, 261];
-        notes.forEach((freq, i) => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.15);
-            gain.gain.setValueAtTime(0.05, audioCtx.currentTime + i * 0.15);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.1);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(audioCtx.currentTime + i * 0.15);
-            osc.stop(audioCtx.currentTime + i * 0.15 + 0.1);
-        });
-    }
-
     const gravity = 0.7;
     const platHeight = 20;
-    const platGap = 120; 
+    const platGap = 130; 
     let platforms = [];
     let maxM = 0;
     let gameState = 'playing';
     let jumpCount = 0;
-    
     let shoeShield = 0; 
     let hasCape = false; 
     let isFlying = false; 
@@ -114,28 +97,32 @@
         altitudeEl.innerText = "0 M"; statusEl.innerText = "";
         player.x = canvas.width / 2 - 18; player.y = canvas.height - 150; player.vy = 0;
         
+        // 첫 바닥
         platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 50, type: 'normal', m: 0 });
-        for (let i = 1; i <= 30; i++) spawnPlatform(i);
+        // 초기 발판 20개 생성
+        for (let i = 1; i <= 20; i++) spawnPlatform(i);
     }
 
+    // [핵심] 올라갈수록 좁아지는 발판 생성 로직
     function spawnPlatform(mValue) {
-        const baseW = 120;
-        const minW = 50;
-        const currentW = Math.max(minW, baseW - (mValue * 0.4)); 
+        const baseW = 140; // 시작 폭
+        const minW = 40;   // 최소 폭 (이보다 작아지지 않음)
+        // mValue(고도)에 비례하여 폭을 줄임
+        const currentW = Math.max(minW, baseW - (mValue * 0.5)); 
 
         const types = ['normal', 'move', 'break', 'spike'];
         let type = types[0];
-        const rand = Math.random();
-        if (mValue > 5) {
-            if (rand > 0.85) type = 'move';
-            else if (rand > 0.75) type = 'break';
-            else if (rand > 0.6) type = 'spike';
+        if (mValue > 10) {
+            const rand = Math.random();
+            if (rand > 0.8) type = 'move';
+            else if (rand > 0.65) type = 'break';
+            else if (rand > 0.5) type = 'spike';
         }
 
         let spikeRange = { start: 0, count: 0 };
         if (type === 'spike') {
             const maxSpikes = Math.floor(currentW / 20);
-            spikeRange.count = Math.max(1, Math.floor(maxSpikes * 0.5)); 
+            spikeRange.count = Math.max(1, Math.floor(maxSpikes * 0.4)); 
             spikeRange.start = Math.floor(Math.random() * (maxSpikes - spikeRange.count + 1));
         }
 
@@ -143,19 +130,18 @@
             x: Math.random() * (canvas.width - currentW),
             y: canvas.height - (mValue * platGap) - 50,
             w: currentW, h: platHeight, type: type, m: mValue,
-            dir: Math.random() > 0.5 ? 1.5 : -1.5, broken: false, breakTimer: 0,
+            dir: Math.random() > 0.5 ? 2 : -2, broken: false, breakTimer: 0,
             spikeRange: spikeRange
         });
     }
 
+    // 컨트롤 로직
     let moveDir = 0;
     const joystick = document.getElementById('joystick-container');
     const knob = document.getElementById('joystick-knob');
-    
     joystick.addEventListener('touchstart', (e) => { initAudio(); handleMove(e); });
-    joystick.addEventListener('touchmove', handleMove);
+    joystick.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); });
     function handleMove(e) {
-        if (gameState !== 'playing') return;
         const touch = e.touches[0];
         const rect = joystick.getBoundingClientRect();
         const dx = touch.clientX - (rect.left + rect.width/2);
@@ -168,27 +154,19 @@
     document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
         e.preventDefault(); initAudio();
         if (gameState !== 'playing' || isFlying) return;
-        if (jumpCount < 2) {
-            player.vy = player.jumpPower;
-            jumpCount++;
-        }
+        if (jumpCount < 2) { player.vy = player.jumpPower; jumpCount++; }
     });
 
     skillBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault(); initAudio();
-        if (!hasCape || isFlying || gameState !== 'playing') return;
+        e.preventDefault(); if (!hasCape || isFlying) return;
         isFlying = true; flyTimer = 180; player.vy = -12;
     });
 
     function update() {
         if (gameState !== 'playing') return;
 
-        if (isFlying) {
-            player.vy = -8; flyTimer--;
-            if (flyTimer <= 0) isFlying = false;
-        } else {
-            player.vy += gravity;
-        }
+        if (isFlying) { player.vy = -8; flyTimer--; if (flyTimer <= 0) isFlying = false; }
+        else { player.vy += gravity; }
 
         player.x += moveDir * player.speed;
         player.y += player.vy;
@@ -197,26 +175,15 @@
         if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
         platforms.forEach((p) => {
-            if (p.type === 'move') {
-                p.x += p.dir;
-                if (p.x < 0 || p.x + p.w > canvas.width) p.dir *= -1;
-            }
-
+            if (p.type === 'move') { p.x += p.dir; if (p.x < 0 || p.x + p.w > canvas.width) p.dir *= -1; }
             if (player.vy > 0 && player.x + player.width > p.x && player.x < p.x + p.w &&
                 player.y + player.height > p.y && player.y + player.height < p.y + p.h + player.vy) {
                 
                 if (p.type === 'spike') {
-                    const playerMidX = player.x + player.width / 2;
-                    const relativeX = playerMidX - p.x;
-                    const spikeStartPos = p.spikeRange.start * 20;
-                    const spikeEndPos = (p.spikeRange.start + p.spikeRange.count) * 20;
-
-                    if (relativeX >= spikeStartPos && relativeX <= spikeEndPos) {
-                        if (shoeShield > 0) {
-                            shoeShield--; player.vy = -20; return;
-                        } else {
-                            gameOver(); return;
-                        }
+                    const mid = player.x + 18;
+                    if (mid >= p.x + p.spikeRange.start*20 && mid <= p.x + (p.spikeRange.start+p.spikeRange.count)*20) {
+                        if (shoeShield > 0) { shoeShield--; player.vy = -20; return; }
+                        else { gameOver(); }
                     }
                 }
 
@@ -224,28 +191,28 @@
                 if (!p.broken || p.breakTimer < 10) {
                     if (player.vy > 1) playLandSound();
                     player.y = p.y - player.height; player.vy = 0; jumpCount = 0;
-                    if (p.m > maxM) { 
-                        maxM = p.m; altitudeEl.innerText = `${maxM} M`; 
-                        checkItemUnlock();
-                    }
+                    if (p.m > maxM) { maxM = p.m; altitudeEl.innerText = `${maxM} M`; checkItemUnlock(); }
                 }
             }
             if (p.broken) p.breakTimer++;
         });
 
+        // 카메라 스크롤
         if (player.y < canvas.height / 2) {
             let diff = canvas.height / 2 - player.y;
             player.y += diff;
             platforms.forEach(p => p.y += diff);
-            if (platforms[0].y > canvas.height + 200) {
-                platforms.shift();
-                spawnPlatform(platforms[platforms.length - 1].m + 1);
-            }
         }
-        if (player.y > canvas.height + 250) gameOver();
 
-        statusEl.innerText = shoeShield > 0 ? `👞 신발 방어: ${shoeShield}회` : "";
-        if (isFlying) statusEl.innerText += `\n🚀 비행중: ${Math.ceil(flyTimer/60)}s`;
+        // [핵심] 발판 무한 생성 로직 보강
+        if (platforms.length > 0 && platforms[platforms.length - 1].y > -200) {
+            spawnPlatform(platforms[platforms.length - 1].m + 1);
+        }
+        if (platforms.length > 0 && platforms[0].y > canvas.height + 400) {
+            platforms.shift();
+        }
+
+        if (player.y > canvas.height + 250) gameOver();
     }
 
     function checkItemUnlock() {
@@ -256,28 +223,15 @@
     function gameOver() {
         if (gameState === 'dead') return;
         gameState = 'dead';
-        playGameOverSound();
         document.getElementById('final-m').innerText = `최종 기록: ${maxM} M`;
         gameOverEl.style.display = 'block';
     }
 
-    function drawPlayer() {
-        const x = player.x; const y = player.y;
-        if (hasCape) {
-            ctx.fillStyle = isFlying ? "#f1c40f" : "#e74c3c";
-            ctx.fillRect(x - 5, y + 25, 46, 30);
-        }
-        ctx.fillStyle = "#ffcc99"; ctx.fillRect(x + 6, y, 24, 24); 
-        ctx.fillStyle = "#e74c3c"; ctx.fillRect(x, y + 24, 36, 24); 
-        ctx.fillStyle = "#2c3e50"; ctx.fillRect(x + 4, y + 48, 10, 12); ctx.fillRect(x + 22, y + 48, 10, 12);
-        ctx.fillStyle = isFlying ? "gold" : "black"; 
-        ctx.fillRect(x + 10, y + 6, 4, 4); ctx.fillRect(x + 22, y + 6, 4, 4);
-    }
-
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 배경 별
         ctx.fillStyle = "white";
-        for(let i=0; i<25; i++) ctx.fillRect((i*157)%canvas.width, (i*190 + maxM*4)%canvas.height, 2, 2);
+        for(let i=0; i<20; i++) ctx.fillRect((i*167)%canvas.width, (i*190 + maxM*2)%canvas.height, 2, 2);
 
         platforms.forEach(p => {
             if (p.type === 'break' && p.breakTimer > 10) return;
@@ -286,19 +240,24 @@
             if (p.type === 'break') color = "#e67e22";
             if (p.type === 'spike') color = "#c0392b";
             ctx.fillStyle = color; ctx.fillRect(p.x, p.y, p.w, p.h);
-            ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(p.x, p.y, p.w, 4);
             if (p.type === 'spike') {
                 ctx.fillStyle = "#ecf0f1";
-                for(let i = p.spikeRange.start; i < p.spikeRange.start + p.spikeRange.count; i++) {
-                    ctx.beginPath(); ctx.moveTo(p.x + i*20 + 5, p.y); ctx.lineTo(p.x + i*20 + 10, p.y - 10); ctx.lineTo(p.x + i*20 + 15, p.y); ctx.fill();
+                for(let i=p.spikeRange.start; i<p.spikeRange.start+p.spikeRange.count; i++) {
+                    ctx.beginPath(); ctx.moveTo(p.x+i*20+5, p.y); ctx.lineTo(p.x+i*20+10, p.y-10); ctx.lineTo(p.x+i*20+15, p.y); ctx.fill();
                 }
             }
         });
-        drawPlayer();
+        
+        // 캐릭터 그리기
+        const x = player.x, y = player.y;
+        if (hasCape) { ctx.fillStyle = isFlying ? "gold" : "#e74c3c"; ctx.fillRect(x-5, y+25, 46, 30); }
+        ctx.fillStyle = "#ffcc99"; ctx.fillRect(x+6, y, 24, 24); 
+        ctx.fillStyle = "#e74c3c"; ctx.fillRect(x, y+24, 36, 24); 
+        ctx.fillStyle = "#2c3e50"; ctx.fillRect(x+4, y+48, 10, 12); ctx.fillRect(x+22, y+48, 10, 12);
     }
 
     function loop() { update(); draw(); requestAnimationFrame(loop); }
-    document.getElementById('restart-btn').onclick = () => { initAudio(); initGame(); };
+    document.getElementById('restart-btn').onclick = () => initGame();
     initGame(); loop();
 </script>
 </body>
