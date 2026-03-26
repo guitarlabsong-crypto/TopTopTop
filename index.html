@@ -86,6 +86,8 @@
 
     // 게임 설정
     const gravity = 0.7;
+    const platHeight = 20; // 발판 높이 고정
+    const platGap = 130; // 발판 사이 간격 고정
     let platforms = [];
     let maxM = 0;
     let gameState = 'playing';
@@ -102,10 +104,17 @@
         player.y = canvas.height - 150;
         player.vy = 0;
         platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 50, type: 'normal', m: 0 });
-        for (let i = 1; i <= 20; i++) spawnPlatform(i);
+        // 초기 발판 25개 생성 (무한 생성 로직으로 연결됨)
+        for (let i = 1; i <= 25; i++) spawnPlatform(i);
     }
 
     function spawnPlatform(mValue) {
+        // 난이도 조절: M에 따라 발판 폭(w)이 좁아짐
+        // 0M: 100px, 100M: 80px, 200M: 60px, 300M 이후: 50px 고정
+        const baseW = 100;
+        const minW = 50;
+        const currentW = Math.max(minW, baseW - Math.floor(mValue / 5));
+
         const types = ['normal', 'move', 'break', 'spike'];
         let type = types[0];
         const rand = Math.random();
@@ -115,9 +124,9 @@
             else if (rand > 0.5) type = 'spike';
         }
         platforms.push({
-            x: Math.random() * (canvas.width - 100),
-            y: canvas.height - (mValue * 140),
-            w: 90, h: 20, type: type, m: mValue,
+            x: Math.random() * (canvas.width - currentW),
+            y: canvas.height - (mValue * platGap) - 50, // 간격 일정하게
+            w: currentW, h: platHeight, type: type, m: mValue,
             dir: Math.random() > 0.5 ? 1 : -1, broken: false, breakTimer: 0
         });
     }
@@ -168,7 +177,7 @@
                 if (p.type === 'spike') { gameOver(); return; }
                 if (p.type === 'break') p.broken = true;
                 if (!p.broken || p.breakTimer < 10) {
-                    if (player.vy > 1) playLandSound(); // 확실히 떨어질 때만 소리 재생
+                    if (player.vy > 1) playLandSound();
                     player.y = p.y - player.height;
                     player.vy = 0;
                     jumpCount = 0;
@@ -178,16 +187,19 @@
             if (p.broken) p.breakTimer++;
         });
 
+        // 카메라 스크롤: 플레이어가 화면 중간 이상 올라가면
         if (player.y < canvas.height / 2) {
             let diff = canvas.height / 2 - player.y;
             player.y += diff;
             platforms.forEach(p => p.y += diff);
-            if (platforms[0].y > canvas.height + 100) {
-                platforms.shift();
-                spawnPlatform(platforms[platforms.length - 1].m + 1);
+            
+            // 신규 발판 무한 생성 로직
+            if (platforms[0].y > canvas.height + 150) {
+                platforms.shift(); // 화면 아래로 사라진 발판 제거
+                spawnPlatform(platforms[platforms.length - 1].m + 1); // 맨 위에 새 발판 추가
             }
         }
-        if (player.y > canvas.height + 100) gameOver();
+        if (player.y > canvas.height + 150) gameOver();
     }
 
     function gameOver() {
@@ -224,8 +236,13 @@
             ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(p.x, p.y, p.w, 4);
             if (p.type === 'spike') {
                 ctx.fillStyle = "#ecf0f1";
-                for(let i=0; i<5; i++) {
-                    ctx.beginPath(); ctx.moveTo(p.x + i*20 + 5, p.y); ctx.lineTo(p.x + i*20 + 10, p.y - 10); ctx.lineTo(p.x + i*20 + 15, p.y); ctx.fill();
+                const numSpikes = Math.max(1, Math.floor(p.w / 18)); // 폭에 맞춰 가시 개수 조절
+                for(let i=0; i<numSpikes; i++) {
+                    ctx.beginPath(); 
+                    ctx.moveTo(p.x + i*20 + 5, p.y); 
+                    ctx.lineTo(p.x + i*20 + 10, p.y - 10); 
+                    ctx.lineTo(p.x + i*20 + 15, p.y); 
+                    ctx.fill();
                 }
             }
         });
