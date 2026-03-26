@@ -7,44 +7,14 @@
     <style>
         body { margin: 0; overflow: hidden; background: #050816; font-family: 'Arial', sans-serif; user-select: none; touch-action: none; }
         canvas { display: block; }
-
-        /* UI 레이아웃 */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        
-        #joystick-container {
-            position: absolute; bottom: 60px; left: 40px;
-            width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%; pointer-events: auto;
-        }
-        #joystick-knob {
-            position: absolute; top: 30px; left: 30px;
-            width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-        }
-
-        #btn-jump {
-            position: absolute; bottom: 70px; right: 40px;
-            width: 85px; height: 85px; background: #000080; 
-            border-radius: 50%; border: 3px solid #ffffff;
-            color: white; font-size: 16px; font-weight: bold;
-            display: flex; justify-content: center; align-items: center;
-            pointer-events: auto;
-        }
-
+        #joystick-container { position: absolute; bottom: 60px; left: 40px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; }
+        #joystick-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; }
+        #btn-jump { position: absolute; bottom: 70px; right: 40px; width: 85px; height: 85px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
         #altitude { position: absolute; top: 30px; width: 100%; text-align: center; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px #000; }
-
-        #game-over {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.95); border: 2px solid #ffd700; padding: 30px;
-            color: white; text-align: center; display: none; pointer-events: auto;
-            border-radius: 15px; width: 260px; z-index: 10;
-        }
+        #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); border: 2px solid #ffd700; padding: 30px; color: white; text-align: center; display: none; pointer-events: auto; border-radius: 15px; width: 260px; z-index: 10; }
         #restart-btn { margin-top: 15px; padding: 12px 24px; background: #ffd700; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
-
-        #watermark {
-            position: absolute; bottom: 15px; width: 100%; text-align: center;
-            color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1.5px;
-        }
+        #watermark { position: absolute; bottom: 15px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1.5px; }
     </style>
 </head>
 <body>
@@ -70,12 +40,49 @@
     const gameOverEl = document.getElementById('game-over');
     const finalMEl = document.getElementById('final-m');
 
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize);
     resize();
+
+    // --- 효과음 엔진 ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    // 착지 소리 (나무 밟는 듯한 툭 소리)
+    function playLandSound() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    // 게임 오버 소리 (띠리리리 하강 멜로디)
+    function playGameOverSound() {
+        if (!audioCtx) return;
+        const notes = [440, 392, 349, 261]; // A4, G4, F4, C4
+        notes.forEach((freq, i) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.15);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime + i * 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + i * 0.15);
+            osc.stop(audioCtx.currentTime + i * 0.15 + 0.1);
+        });
+    }
 
     // 게임 설정
     const gravity = 0.7;
@@ -83,38 +90,23 @@
     let maxM = 0;
     let gameState = 'playing';
     let jumpCount = 0;
-    let frameCount = 0;
 
-    const player = {
-        x: 0, y: 0, width: 36, height: 60,
-        vx: 0, vy: 0, speed: 6,
-        jumpPower: -17
-    };
+    const player = { x: 0, y: 0, width: 36, height: 60, vx: 0, vy: 0, speed: 6, jumpPower: -17 };
 
     function initGame() {
         platforms = [];
-        maxM = 0;
-        jumpCount = 0;
-        gameState = 'playing';
+        maxM = 0; jumpCount = 0; gameState = 'playing';
         gameOverEl.style.display = 'none';
         altitudeEl.innerText = "0 M";
-        
         player.x = canvas.width / 2 - 18;
         player.y = canvas.height - 150;
         player.vy = 0;
-
-        // 초기 바닥
         platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 50, type: 'normal', m: 0 });
-        
-        // 초기 발판 20개 생성
-        for (let i = 1; i <= 20; i++) {
-            spawnPlatform(i);
-        }
+        for (let i = 1; i <= 20; i++) spawnPlatform(i);
     }
 
     function spawnPlatform(mValue) {
         const types = ['normal', 'move', 'break', 'spike'];
-        // 높이가 낮을 땐 노멀 비중 높게, 올라갈수록 험악하게
         let type = types[0];
         const rand = Math.random();
         if (mValue > 5) {
@@ -122,25 +114,19 @@
             else if (rand > 0.6) type = 'break';
             else if (rand > 0.5) type = 'spike';
         }
-
         platforms.push({
             x: Math.random() * (canvas.width - 100),
             y: canvas.height - (mValue * 140),
-            w: 90, h: 20, 
-            type: type, 
-            m: mValue,
-            dir: Math.random() > 0.5 ? 1 : -1, // 움직이는 다리용
-            broken: false, // 부서지는 다리용
-            breakTimer: 0
+            w: 90, h: 20, type: type, m: mValue,
+            dir: Math.random() > 0.5 ? 1 : -1, broken: false, breakTimer: 0
         });
     }
 
-    // 컨트롤 로직
     let moveDir = 0;
     const joystick = document.getElementById('joystick-container');
     const knob = document.getElementById('joystick-knob');
     
-    joystick.addEventListener('touchstart', handleMove);
+    joystick.addEventListener('touchstart', (e) => { initAudio(); handleMove(e); });
     joystick.addEventListener('touchmove', handleMove);
     function handleMove(e) {
         if (gameState !== 'playing') return;
@@ -151,14 +137,11 @@
         knob.style.transform = `translateX(${Math.sign(dx) * dist}px)`;
         moveDir = (dx / 40);
     }
-
-    joystick.addEventListener('touchend', () => {
-        knob.style.transform = `translate(0,0)`;
-        moveDir = 0;
-    });
+    joystick.addEventListener('touchend', () => { knob.style.transform = `translate(0,0)`; moveDir = 0; });
 
     document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
         e.preventDefault();
+        initAudio();
         if (gameState !== 'playing') return;
         if (jumpCount < 2) {
             player.vy = player.jumpPower * (jumpCount === 1 ? 1.1 : 1);
@@ -168,137 +151,89 @@
 
     function update() {
         if (gameState !== 'playing') return;
-
         player.vx = moveDir * player.speed;
         player.vy += gravity;
         player.x += player.vx;
         player.y += player.vy;
-
         if (player.x < 0) player.x = 0;
         if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-        // 발판 로직 처리
-        platforms.forEach((p, index) => {
-            // 1. 움직이는 다리
+        platforms.forEach((p) => {
             if (p.type === 'move') {
                 p.x += p.dir * 2;
                 if (p.x < 0 || p.x + p.w > canvas.width) p.dir *= -1;
             }
-
-            // 충돌 체크
             if (player.vy > 0 && player.x + player.width > p.x && player.x < p.x + p.w &&
                 player.y + player.height > p.y && player.y + player.height < p.y + p.h + player.vy) {
-                
-                // 압정 다리 체크
-                if (p.type === 'spike') {
-                    gameOver();
-                    return;
-                }
-
-                // 부서지는 다리 체크
-                if (p.type === 'break') {
-                    p.broken = true;
-                }
-
+                if (p.type === 'spike') { gameOver(); return; }
+                if (p.type === 'break') p.broken = true;
                 if (!p.broken || p.breakTimer < 10) {
+                    if (player.vy > 1) playLandSound(); // 확실히 떨어질 때만 소리 재생
                     player.y = p.y - player.height;
                     player.vy = 0;
                     jumpCount = 0;
-                    if (p.m > maxM) {
-                        maxM = p.m;
-                        altitudeEl.innerText = `${maxM} M`;
-                    }
+                    if (p.m > maxM) { maxM = p.m; altitudeEl.innerText = `${maxM} M`; }
                 }
             }
-
-            // 부서지는 타이머
             if (p.broken) p.breakTimer++;
         });
 
-        // 다리 제거 및 신규 생성 (무한 루프)
         if (player.y < canvas.height / 2) {
             let diff = canvas.height / 2 - player.y;
             player.y += diff;
             platforms.forEach(p => p.y += diff);
-            
             if (platforms[0].y > canvas.height + 100) {
                 platforms.shift();
-                const lastM = platforms[platforms.length - 1].m;
-                spawnPlatform(lastM + 1);
+                spawnPlatform(platforms[platforms.length - 1].m + 1);
             }
         }
-
         if (player.y > canvas.height + 100) gameOver();
     }
 
     function gameOver() {
+        if (gameState === 'dead') return;
         gameState = 'dead';
+        playGameOverSound();
         finalMEl.innerText = `최종 기록: ${maxM} M`;
         gameOverEl.style.display = 'block';
     }
 
     function drawPlayer() {
         const x = player.x; const y = player.y;
-        
-        // 몸체
-        ctx.fillStyle = "#ffcc99"; ctx.fillRect(x + 6, y, 24, 24); // 머리
-        ctx.fillStyle = "#e74c3c"; ctx.fillRect(x, y + 24, 36, 24); // 몸통
-        ctx.fillStyle = "#2c3e50"; ctx.fillRect(x + 4, y + 48, 10, 12); ctx.fillRect(x + 22, y + 48, 10, 12); // 다리
-
-        // 눈
-        ctx.fillStyle = "black";
-        ctx.fillRect(x + 10, y + 6, 4, 4); ctx.fillRect(x + 22, y + 6, 4, 4);
-
-        // 아이템 장착 (M 기준)
-        if (maxM >= 50) { ctx.fillStyle = "#3498db"; ctx.fillRect(x+2, y+54, 14, 6); ctx.fillRect(x+20, y+54, 14, 6); } // 신발
-        if (maxM >= 100) { ctx.fillStyle = "#f1c40f"; ctx.fillRect(x+6, y+24, 24, 4); } // 목걸이
-        if (maxM >= 150) { ctx.fillStyle = "#f1c40f"; ctx.fillRect(x-2, y+36, 4, 4); } // 팔찌
-        if (maxM >= 200) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(x+6, y+6, 24, 6); } // 선글라스
+        ctx.fillStyle = "#ffcc99"; ctx.fillRect(x + 6, y, 24, 24); 
+        ctx.fillStyle = "#e74c3c"; ctx.fillRect(x, y + 24, 36, 24); 
+        ctx.fillStyle = "#2c3e50"; ctx.fillRect(x + 4, y + 48, 10, 12); ctx.fillRect(x + 22, y + 48, 10, 12);
+        ctx.fillStyle = "black"; ctx.fillRect(x + 10, y + 6, 4, 4); ctx.fillRect(x + 22, y + 6, 4, 4);
+        if (maxM >= 50) { ctx.fillStyle = "#3498db"; ctx.fillRect(x+2, y+54, 14, 6); ctx.fillRect(x+20, y+54, 14, 6); }
+        if (maxM >= 100) { ctx.fillStyle = "#f1c40f"; ctx.fillRect(x+6, y+24, 24, 4); }
+        if (maxM >= 150) { ctx.fillStyle = "#f1c40f"; ctx.fillRect(x-2, y+36, 4, 4); }
+        if (maxM >= 200) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(x+6, y+6, 24, 6); }
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 별 배경
         ctx.fillStyle = "white";
         for(let i=0; i<20; i++) ctx.fillRect((i*157)%canvas.width, (i*243 + maxM*3)%canvas.height, 2, 2);
-
         platforms.forEach(p => {
-            if (p.type === 'break' && p.breakTimer > 10) return; // 부서진 건 안 그림
-
-            let color = "#34495e"; // 기본
-            if (p.type === 'move') color = "#2ecc71"; // 초록 (움직임)
-            if (p.type === 'break') color = "#e67e22"; // 주황 (부서짐)
-            if (p.type === 'spike') color = "#c0392b"; // 빨강 (압정)
-
-            ctx.fillStyle = color;
-            ctx.fillRect(p.x, p.y, p.w, p.h);
-            ctx.fillStyle = "rgba(255,255,255,0.2)";
-            ctx.fillRect(p.x, p.y, p.w, 4);
-
-            // 압정 표현
+            if (p.type === 'break' && p.breakTimer > 10) return;
+            let color = "#34495e";
+            if (p.type === 'move') color = "#2ecc71";
+            if (p.type === 'break') color = "#e67e22";
+            if (p.type === 'spike') color = "#c0392b";
+            ctx.fillStyle = color; ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(p.x, p.y, p.w, 4);
             if (p.type === 'spike') {
                 ctx.fillStyle = "#ecf0f1";
                 for(let i=0; i<5; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(p.x + i*20 + 5, p.y);
-                    ctx.lineTo(p.x + i*20 + 10, p.y - 10);
-                    ctx.lineTo(p.x + i*20 + 15, p.y);
-                    ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(p.x + i*20 + 5, p.y); ctx.lineTo(p.x + i*20 + 10, p.y - 10); ctx.lineTo(p.x + i*20 + 15, p.y); ctx.fill();
                 }
             }
         });
-
         drawPlayer();
     }
 
-    function loop() { 
-        update(); 
-        draw(); 
-        requestAnimationFrame(loop); 
-    }
-
-    document.getElementById('restart-btn').onclick = initGame;
+    function loop() { update(); draw(); requestAnimationFrame(loop); }
+    document.getElementById('restart-btn').onclick = () => { initAudio(); initGame(); };
     initGame();
     loop();
 </script>
