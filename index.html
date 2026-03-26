@@ -9,20 +9,20 @@
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         
-        /* 컨트롤 UI */
-        #joystick-container { position: absolute; bottom: 60px; left: 30px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
+        /* 컨트롤 UI - 하단 배치 */
+        #joystick-container { position: absolute; bottom: 50px; left: 30px; width: 100px; height: 100px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; }
-        #btn-jump { position: absolute; bottom: 160px; right: 40px; width: 75px; height: 75px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 14px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
         
-        /* 망토 필살기 버튼 (처음엔 숨김) */
-        #btn-skill { position: absolute; bottom: 60px; right: 40px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
+        /* 점프 버튼 - 다시 하단 우측으로 이동 */
+        #btn-jump { position: absolute; bottom: 150px; right: 40px; width: 80px; height: 80px; background: #000080; border-radius: 50%; border: 3px solid #ffffff; color: white; font-size: 16px; font-weight: bold; display: flex; justify-content: center; align-items: center; pointer-events: auto; }
+        
+        /* 망토 버튼 - 하단 우측 */
+        #btn-skill { position: absolute; bottom: 50px; right: 40px; width: 85px; height: 85px; background: #e74c3c; border-radius: 50%; border: 4px solid #ffd700; color: white; font-size: 16px; font-weight: bold; display: none; justify-content: center; align-items: center; pointer-events: auto; box-shadow: 0 0 15px #e74c3c; }
 
         #altitude { position: absolute; top: 30px; width: 100%; text-align: center; font-size: 28px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px #000; }
         #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); border: 2px solid #ffd700; padding: 30px; color: white; text-align: center; display: none; pointer-events: auto; border-radius: 15px; width: 260px; z-index: 10; }
         #restart-btn { margin-top: 15px; padding: 12px 24px; background: #ffd700; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
         #watermark { position: absolute; bottom: 15px; width: 100%; text-align: center; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 1.5px; }
-        
-        /* 상단 상태 표시 (신발 방어력 등) */
         #status { position: absolute; top: 70px; left: 20px; color: #fff; font-size: 14px; text-align: left; }
     </style>
 </head>
@@ -56,16 +56,10 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // --- 효과음 엔진 (이전 깔끔한 버전으로 복원) ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
+    function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
 
-    function initAudio() {
-        if (!audioCtx) audioCtx = new AudioContext();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-
-    // 착지 소리 (나무 밟는 듯한 툭 소리)
     function playLandSound() {
         if (!audioCtx) return;
         const osc = audioCtx.createOscillator();
@@ -79,10 +73,9 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.1);
     }
 
-    // 게임 오버 소리 (띠리리리 하강 멜로디)
     function playGameOverSound() {
         if (!audioCtx) return;
-        const notes = [440, 392, 349, 261]; // A4, G4, F4, C4
+        const notes = [440, 392, 349, 261];
         notes.forEach((freq, i) => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -96,19 +89,17 @@
         });
     }
 
-    // --- 게임 물리 변수 ---
     const gravity = 0.7;
     const platHeight = 20;
-    // --- 변경점: 발판 세로 간격을 대폭 축소 (135 -> 70) ---
-    const platGap = 70; 
+    // 발판 간격 적당히 조절 (너무 많지 않게)
+    const platGap = 120; 
     let platforms = [];
     let maxM = 0;
     let gameState = 'playing';
     let jumpCount = 0;
     
-    // 아이템 상태
-    let shoeShield = 0; // 50M 도달 시 2로 설정됨
-    let hasCape = false; // 100M 도달 시 true
+    let shoeShield = 0; 
+    let hasCape = false; 
     let isFlying = false; 
     let flyTimer = 0;
 
@@ -122,43 +113,40 @@
         player.x = canvas.width / 2 - 18; player.y = canvas.height - 150; player.vy = 0;
         
         platforms.push({ x: 0, y: canvas.height - 50, w: canvas.width, h: 50, type: 'normal', m: 0 });
-        // --- 변경점: 초기 생성 발판 개수를 늘림 (25 -> 50) ---
-        for (let i = 1; i <= 50; i++) spawnPlatform(i);
+        for (let i = 1; i <= 30; i++) spawnPlatform(i);
     }
 
     function spawnPlatform(mValue) {
-        // 발판 너비 축소 로직 유지
+        // 사다리 폭(너비)이 비례해서 좁아지는 로직
         const baseW = 120;
-        const minW = 55;
-        const currentW = Math.max(minW, baseW - Math.floor(mValue / 4));
+        const minW = 50;
+        const currentW = Math.max(minW, baseW - (mValue * 0.4)); // 고도에 비례해 축소
 
         const types = ['normal', 'move', 'break', 'spike'];
         let type = types[0];
         const rand = Math.random();
         if (mValue > 5) {
-            if (rand > 0.8) type = 'move';
-            else if (rand > 0.6) type = 'break';
-            // 발판이 많아졌으므로 압정 확률을 살짝 낮춤
-            else if (rand > 0.5) type = 'spike';
+            if (rand > 0.85) type = 'move';
+            else if (rand > 0.75) type = 'break';
+            else if (rand > 0.6) type = 'spike';
         }
 
         let spikeRange = { start: 0, count: 0 };
         if (type === 'spike') {
             const maxSpikes = Math.floor(currentW / 20);
-            spikeRange.count = Math.max(1, Math.floor(maxSpikes * 0.6)); // 약 60%만 가시
+            spikeRange.count = Math.max(1, Math.floor(maxSpikes * 0.5)); 
             spikeRange.start = Math.floor(Math.random() * (maxSpikes - spikeRange.count + 1));
         }
 
         platforms.push({
             x: Math.random() * (canvas.width - currentW),
-            y: canvas.height - (mValue * platGap) - 50, // 간격 촘촘하게
+            y: canvas.height - (mValue * platGap) - 50,
             w: currentW, h: platHeight, type: type, m: mValue,
             dir: Math.random() > 0.5 ? 1.5 : -1.5, broken: false, breakTimer: 0,
             spikeRange: spikeRange
         });
     }
 
-    // 입력 처리
     let moveDir = 0;
     const joystick = document.getElementById('joystick-container');
     const knob = document.getElementById('joystick-knob');
@@ -180,46 +168,28 @@
         e.preventDefault(); initAudio();
         if (gameState !== 'playing' || isFlying) return;
         if (jumpCount < 2) {
-            player.vy = player.jumpPower * (jumpCount === 1 ? 1.1 : 1);
+            player.vy = player.jumpPower;
             jumpCount++;
-            // 점프 소리는 깔끔한 버전에는 없었으므로 제거 (주석 처리)
-            // playSound(300 + jumpCount*100, 'sine', 0.1, 0.1);
         }
     });
 
-    // 100M 망토 필살기 버튼
     skillBtn.addEventListener('touchstart', (e) => {
         e.preventDefault(); initAudio();
         if (!hasCape || isFlying || gameState !== 'playing') return;
-        isFlying = true;
-        flyTimer = 180; // 60fps 기준 3초
-        player.vy = -12;
-        // 비행 시작 소리 (깔끔한 버전의 sawTooth음 활용)
-        if (audioCtx) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
-        }
+        isFlying = true; flyTimer = 180; player.vy = -12;
     });
 
     function update() {
         if (gameState !== 'playing') return;
 
-        // 비행 모드 로직
         if (isFlying) {
-            player.vy = -8; 
-            flyTimer--;
+            player.vy = -8; flyTimer--;
             if (flyTimer <= 0) isFlying = false;
         } else {
             player.vy += gravity;
         }
 
-        player.vx = moveDir * player.speed;
-        player.x += player.vx;
+        player.x += moveDir * player.speed;
         player.y += player.vy;
 
         if (player.x < 0) player.x = 0;
@@ -231,11 +201,9 @@
                 if (p.x < 0 || p.x + p.w > canvas.width) p.dir *= -1;
             }
 
-            // 충돌 감지 (내려오는 중일 때만)
             if (player.vy > 0 && player.x + player.width > p.x && player.x < p.x + p.w &&
                 player.y + player.height > p.y && player.y + player.height < p.y + p.h + player.vy) {
                 
-                // 압정 체크
                 if (p.type === 'spike') {
                     const playerMidX = player.x + player.width / 2;
                     const relativeX = playerMidX - p.x;
@@ -243,19 +211,8 @@
                     const spikeEndPos = (p.spikeRange.start + p.spikeRange.count) * 20;
 
                     if (relativeX >= spikeStartPos && relativeX <= spikeEndPos) {
-                        if (shoeShield > 0) { // 신발 아이템 능력 사용
-                            shoeShield--;
-                            player.vy = -20; // 튕겨나감
-                            if (audioCtx) {
-                                const osc = audioCtx.createOscillator();
-                                const gain = audioCtx.createGain();
-                                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-                                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-                                osc.connect(gain); gain.connect(audioCtx.destination);
-                                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-                            }
-                            return;
+                        if (shoeShield > 0) {
+                            shoeShield--; player.vy = -20; return;
                         } else {
                             gameOver(); return;
                         }
@@ -264,7 +221,7 @@
 
                 if (p.type === 'break') p.broken = true;
                 if (!p.broken || p.breakTimer < 10) {
-                    if (player.vy > 1) playLandSound(); // 깔끔한 착지 소리
+                    if (player.vy > 1) playLandSound();
                     player.y = p.y - player.height; player.vy = 0; jumpCount = 0;
                     if (p.m > maxM) { 
                         maxM = p.m; altitudeEl.innerText = `${maxM} M`; 
@@ -275,75 +232,51 @@
             if (p.broken) p.breakTimer++;
         });
 
-        // 카메라 스크롤 및 무한 생성
         if (player.y < canvas.height / 2) {
             let diff = canvas.height / 2 - player.y;
             player.y += diff;
             platforms.forEach(p => p.y += diff);
-            // 간격이 좁아졌으므로 더 자주 생성해야 함
-            if (platforms[0].y > canvas.height + platGap * 2) {
+            if (platforms[0].y > canvas.height + 200) {
                 platforms.shift();
                 spawnPlatform(platforms[platforms.length - 1].m + 1);
             }
         }
-        if (player.y > canvas.height + platGap * 3) gameOver();
+        if (player.y > canvas.height + 250) gameOver();
 
-        // UI 업데이트
         statusEl.innerText = shoeShield > 0 ? `👞 신발 방어: ${shoeShield}회` : "";
         if (isFlying) statusEl.innerText += `\n🚀 비행중: ${Math.ceil(flyTimer/60)}s`;
     }
 
     function checkItemUnlock() {
-        if (maxM >= 50 && shoeShield === 0 && maxM < 55) {
-            shoeShield = 2; // 신발 획득
-        }
-        if (maxM >= 100 && !hasCape) {
-            hasCape = true; 
-            skillBtn.style.display = 'flex'; // 망토 버튼 등장
-        }
+        if (maxM >= 50 && shoeShield === 0 && maxM < 55) shoeShield = 2;
+        if (maxM >= 100 && !hasCape) { hasCape = true; skillBtn.style.display = 'flex'; }
     }
 
     function gameOver() {
         if (gameState === 'dead') return;
         gameState = 'dead';
-        playGameOverSound(); // 깔끔한 게임오버 소리
+        playGameOverSound();
         document.getElementById('final-m').innerText = `최종 기록: ${maxM} M`;
         gameOverEl.style.display = 'block';
     }
 
     function drawPlayer() {
         const x = player.x; const y = player.y;
-        
-        // 망토 그리기
         if (hasCape) {
             ctx.fillStyle = isFlying ? "#f1c40f" : "#e74c3c";
             ctx.fillRect(x - 5, y + 25, 46, 30);
         }
-
-        // 몸체
         ctx.fillStyle = "#ffcc99"; ctx.fillRect(x + 6, y, 24, 24); 
         ctx.fillStyle = "#e74c3c"; ctx.fillRect(x, y + 24, 36, 24); 
         ctx.fillStyle = "#2c3e50"; ctx.fillRect(x + 4, y + 48, 10, 12); ctx.fillRect(x + 22, y + 48, 10, 12);
-        
-        // 눈
         ctx.fillStyle = isFlying ? "gold" : "black"; 
         ctx.fillRect(x + 10, y + 6, 4, 4); ctx.fillRect(x + 22, y + 6, 4, 4);
-
-        // 아이템 가시화
-        if (maxM >= 50) { // 신발 (방어 횟수 남아있을 때만 진하게)
-            ctx.fillStyle = shoeShield > 0 ? "#3498db" : "rgba(52, 152, 219, 0.3)";
-            ctx.fillRect(x+2, y+54, 14, 6); ctx.fillRect(x+20, y+54, 14, 6); 
-        }
-        if (maxM >= 150) { ctx.fillStyle = "#f1c40f"; ctx.fillRect(x-2, y+36, 4, 4); } // 팔찌
-        if (maxM >= 200) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(x+6, y+6, 24, 6); } // 선글라스
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 배경 별
         ctx.fillStyle = "white";
-        for(let i=0; i<30; i++) ctx.fillRect((i*157)%canvas.width, (i*190 + maxM*4)%canvas.height, 2, 2);
+        for(let i=0; i<25; i++) ctx.fillRect((i*157)%canvas.width, (i*190 + maxM*4)%canvas.height, 2, 2);
 
         platforms.forEach(p => {
             if (p.type === 'break' && p.breakTimer > 10) return;
@@ -351,10 +284,8 @@
             if (p.type === 'move') color = "#2ecc71";
             if (p.type === 'break') color = "#e67e22";
             if (p.type === 'spike') color = "#c0392b";
-
             ctx.fillStyle = color; ctx.fillRect(p.x, p.y, p.w, p.h);
             ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(p.x, p.y, p.w, 4);
-            
             if (p.type === 'spike') {
                 ctx.fillStyle = "#ecf0f1";
                 for(let i = p.spikeRange.start; i < p.spikeRange.start + p.spikeRange.count; i++) {
